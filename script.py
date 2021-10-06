@@ -1,10 +1,13 @@
+import csv
+import pandas as pd
 import requests
 from bs4 import BeautifulSoup
 
-# URL = 'https://catalog.onliner.by/mobile?on_sale=1&page=1'
-URL = 'https://by.wildberries.ru/catalog/elektronika/smartfony-i-telefony?sort=popular&bid=fd75b2c6-d30e-4cd0-9ba5-70849a942ab7'
+FILENAME = 'pzz.csv'
+URL = 'https://dominos.by/'
 HEADERS = {
-    'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/94.0.4606.61 Safari/537.36',
+    'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 '
+                  '(KHTML, like Gecko) Chrome/94.0.4606.61 Safari/537.36',
     'accept': '*/*'
 }
 
@@ -14,21 +17,44 @@ def get_html(url):
     return r
 
 
-def get_data(html):
+def save_data_in_csv(data: list) -> None:
+    with open(FILENAME, 'w', newline='') as file:
+        columns = ['Название', 'Вес', 'Цена']
+        writer = csv.DictWriter(file, fieldnames=columns)
+        writer.writeheader()
+        for row in data:
+            writer.writerow(row)
+
+
+def save_data_in_xlsx(data: list) -> None:
+    df = pd.DataFrame(data)
+    df.to_excel('pzz.xlsx', index=False)
+
+
+def get_data(html) -> list:
     soap = BeautifulSoup(html, "html.parser")
-    items = soap.find_all('div', class_='product-card__wrapper')
+    items = soap.find_all('div', class_='product-card product-card--vertical')
 
+    data = [
+        {
+            'Название': item.find(class_='product-card__title').get_text(),
+            'Вес': item.find(class_='product-card__modification-info-weight').get_text(),
+            'Цена': item.find(class_='product-card__modification-info-price').get_text(),
+        }
 
-    res = [{'price': item.find(class_='lower-price').get_text().replace('\xa0', ' ')} for item in items]
+        for item in items
+    ]
 
-    print(res)
-
+    return sorted(data, key=lambda data: data['Цена'])
 
 
 def parse():
     html = get_html(URL)
+    print(type(html))
     if html.status_code == 200:
-        get_data(html.text)
+        data = get_data(html.text)
+        save_data_in_xlsx(data)
+        save_data_in_csv(data)
     else:
         print('Ошибка доступа к сайту')
 
